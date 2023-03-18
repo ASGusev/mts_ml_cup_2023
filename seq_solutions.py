@@ -27,14 +27,14 @@ class UsersDataset(Dataset):
             users, targets,
             users_histories, interaction_features, users_cat_features, users_num_features, user_embeddings,
             urls_embeddings, urls_features,
-            batch_size, hist_len_limit
+            batch_size, hist_len_limit, order_by_len=True
     ):
         valid_targets_mask = ~np.isnan(targets.ravel())
         histories = users_histories[valid_targets_mask]
         self.batch_size = batch_size
         self.hist_len_limit = hist_len_limit
         histories_lengths = v_len(histories)
-        users_order = np.argsort(histories_lengths)
+        users_order = np.argsort(histories_lengths) if order_by_len else np.arange(len(histories_lengths))
         self.users = users[valid_targets_mask][users_order]
         self.histories = histories[users_order]
         self.interaction_features = interaction_features[valid_targets_mask][users_order]
