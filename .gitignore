@@ -1,0 +1,15 @@
+models
+raw_predictions
+outputs
+lightning_logs
+submits
+data
+embeddings
+feature_transformers
+catboost_info
+user_features
+url_features
+interactions
+.idea
+.ipynb_checkpoints
+.jupyter
