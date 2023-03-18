@@ -1,3 +1,4 @@
+import bisect
 import json
 from pathlib import Path
 
@@ -5,6 +6,17 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 from tqdm.auto import tqdm
+
+
+DATA_ROOT = Path('data/')
+CONVERTED_DATA_ROOT = DATA_ROOT / 'data_converted'
+USER_FEATURES_DIR = Path('user_features/')
+URL_FEATURES_DIR = Path('url_features/')
+FEATURE_TRANSFORMERS_DIR = Path('feature_transformers/')
+EMBEDDINGS_DIR = Path('embeddings/')
+INTERACTIONS_DIR = Path('interactions')
+N_URLS = 199683
+N_USERS = 415317
 
 
 class CatNumerator:
@@ -174,3 +186,51 @@ class PartialEmbeddingsLoader:
             ],
             axis=1
         )
+
+
+@np.vectorize
+def age_bucket(x):
+    return bisect.bisect_left([18, 25, 35, 45, 55, 65], x)
+
+
+def load_feature_arrays(conf, features_dir):
+    return np.stack([
+        np.load(str(features_dir / f'{fn}.npy'), allow_pickle=True)
+        for fn in conf
+    ])
+
+
+class FeatureLoader:
+    def __init__(self, conf, features_dir):
+        self.cat_tops = {}
+        self.cat_numbs = {}
+        for fn in conf['cat_features']:
+            stats = np.load(str(features_dir / f'{fn}.npz'))
+            self.cat_tops[fn] = stats['top']
+            self.cat_numbs[fn] = stats['numb']
+        self.cat_feature_names = [f'{fn}' for fn in conf['cat_features']]
+
+        self.ready_features = load_feature_arrays(conf['ready_features'], features_dir)
+
+        self.mean_calculators = [
+            KeyedMeanCalculator.load(features_dir / f'{fn}.npz')
+            for fn in conf['mean_calculators']
+        ]
+
+    def get_cat_features(self, indexes):
+        return np.stack([
+            self.cat_tops[fn][indexes]
+            for fn in self.cat_feature_names
+        ]).T
+
+    def get_num_features(self, indexes):
+        return np.stack((
+            *(self.cat_numbs[fn][indexes] for fn in self.cat_feature_names),
+            *(mc.get(indexes) for mc in self.mean_calculators),
+            *self.ready_features[:, indexes]
+        )).T
+
+
+def load_interaction_features(conf):
+    feature_arrays = load_feature_arrays(conf['interaction_features'], INTERACTIONS_DIR).T
+    return np.array([np.stack(ufs, axis=1) for ufs in feature_arrays], dtype=object)
