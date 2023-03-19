@@ -218,6 +218,8 @@ class FeatureLoader:
         ]
 
     def get_cat_features(self, indexes):
+        if not self.cat_feature_names:
+            return np.ndarray((len(indexes), 0))
         return np.stack([
             self.cat_tops[fn][indexes]
             for fn in self.cat_feature_names
