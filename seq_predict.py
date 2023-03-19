@@ -32,10 +32,9 @@ def main(args):
     model.eval()
     conf = OmegaConf.load(args.config_path)
 
-    train_data = pd.read_parquet(feature_utils.DATA_ROOT / 'train_users.pqt')
-    val_data = pd.read_parquet(feature_utils.DATA_ROOT / 'val_users.pqt')
-    train_data.loc[train_data['is_male'] == 'NA', 'is_male'] = 'nan'
-    val_data.loc[val_data['is_male'] == 'NA', 'is_male'] = 'nan'
+    data_file_name = 'val_users.pqt' if args.dataset == 'val' else 'submit_2.pqt'
+    users_data = pd.read_parquet(feature_utils.DATA_ROOT / data_file_name)
+    user_ids = users_data['user_id'].values
 
     user_feature_loader = feature_utils.FeatureLoader(conf['features']['user'], feature_utils.USER_FEATURES_DIR)
     url_feature_loader = feature_utils.FeatureLoader(conf['features']['url'], feature_utils.URL_FEATURES_DIR)
@@ -45,15 +44,13 @@ def main(args):
         for en in conf['features']['url_embeddings_names']
     ]
     user_embeddings = feature_utils.PartialEmbeddingsLoader(
-        np.concatenate((train_data['user_id'].values, val_data['user_id'].values)),
+        user_ids,
         [feature_utils.EMBEDDINGS_DIR / en / 'users.npy' for en in conf['features']['user_embeddings_names']]
     )
 
     interaction_sets = np.load('interactions/interactions.npy', allow_pickle=True)
     interaction_features = feature_utils.load_interaction_features(conf['features'])
 
-    users_data = pd.read_parquet(args.data_path)
-    user_ids = users_data['user_id'].values
     target = np.full_like(user_ids, -1)
     if conf['target'] == 'is_male':
         target = target.astype(np.float32).reshape((-1, 1))
@@ -73,16 +70,15 @@ def main(args):
             for batch in tqdm(dataset)
         ]
     predictions = np.concatenate(predictions)
-    np.save(f'{args.out_dir}/seq_{args.lightning_version}.npy', predictions)
+    out_path = f'raw_predictions/{args.dataset}_{conf["target"]}/seq_{args.lightning_version}.npy'
+    np.save(out_path, predictions)
 
 
 if __name__ == '__main__':
     argument_parser = ArgumentParser()
     argument_parser.add_argument('config_path', type=Path)
     argument_parser.add_argument('lightning_version', type=int)
-    argument_parser.add_argument('data_path', type=Path)
-    argument_parser.add_argument('target')
-    argument_parser.add_argument('out_dir', type=Path)
+    argument_parser.add_argument('dataset', choices=('val', 'test'))
     arguments = argument_parser.parse_args()
 
     main(arguments)
