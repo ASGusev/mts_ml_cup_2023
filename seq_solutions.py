@@ -148,7 +148,7 @@ class ConvModel(pl.LightningModule):
             user_num_features_dim=24, user_embeddings_dims=(), url_features_dim=1, interaction_features_dim=1,
             history_hidden_dim=256, conv_kernel=1, n_conv_layers=1, combined_hidden_dim=256, n_final_steps=2,
             attention=False, attention_temperature=1., n_attention_layers=1, dropout=.2, out_dim=1,
-            lr=1e-2, weight_decay=1e-3
+            lr=1e-2, weight_decay=1e-3, class_weights=None
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -203,7 +203,9 @@ class ConvModel(pl.LightningModule):
             nn.Linear(combined_hidden_dim, out_dim),
             nn.Sigmoid() if out_dim == 1 else nn.Identity()
         )
-        self.loss_function = nn.BCELoss() if out_dim == 1 else nn.CrossEntropyLoss()
+        if class_weights:
+            class_weights = torch.tensor(class_weights)
+        self.loss_function = nn.BCELoss() if out_dim == 1 else nn.CrossEntropyLoss(weight=class_weights)
         self.val_metric = Gini() if out_dim == 1 else WeightedF1()
         self.lr = lr
         self.weight_decay = weight_decay

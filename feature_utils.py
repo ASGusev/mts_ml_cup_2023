@@ -17,6 +17,7 @@ EMBEDDINGS_DIR = Path('embeddings/')
 INTERACTIONS_DIR = Path('interactions')
 N_URLS = 199683
 N_USERS = 415317
+N_AGE_BUCKETS = 7
 
 
 class CatNumerator:
@@ -38,7 +39,7 @@ class CatNumerator:
         elif isinstance(x, np.ndarray):
             return np.array([self.cat_ids[i] for i in x])
         raise ValueError
-    
+
     def inv_transform(self, x):
         if isinstance(x, pd.Series):
             x = x.values
@@ -119,7 +120,7 @@ class KeyedMeanCalculator:
     def __init__(self, n=-1, *, sums=None, counters=None):
         self.sums = sums if sums is not None else np.zeros(n)
         self.counters = counters if counters is not None else np.zeros(n, np.int32)
-    
+
     def get_global(self):
         return self.sums.sum() / self.counters.sum()
 
@@ -136,7 +137,7 @@ class KeyedMeanCalculator:
             sums[unseen_mask] = default
             counters[unseen_mask] = 1
         return sums / counters
-    
+
     def update(self, keys, new_vals, multipliers=1):
         np.add.at(self.sums, keys, new_vals * multipliers)
         np.add.at(self.counters, keys, multipliers)
