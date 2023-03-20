@@ -66,7 +66,6 @@ def main(conf: omegaconf.DictConfig):
             np.add.at(class_weights, classes, 1)
             class_weights = class_weights / class_weights.sum()
             class_weights = class_weights.tolist()
-            print(class_weights)
     model = seq_solutions.ConvModel(**conf['model_parameters'], out_dim=out_dim, class_weights=class_weights)
     pb_callback = pl.callbacks.TQDMProgressBar(refresh_rate=16)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k=1, monitor=val_metric, mode='max')
