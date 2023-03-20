@@ -50,7 +50,8 @@ def main(conf: omegaconf.DictConfig):
     torch.manual_seed(42)
     np.random.seed(42)
     train_ds = make_ds(train_data)
-    train_ds = seq_solutions.DatasetShuffleWrapper(train_ds)
+    if conf['shuffle_train_ds']:
+        train_ds = seq_solutions.DatasetShuffleWrapper(train_ds)
     val_ds = make_ds(val_data)
 
     class_weights = None
