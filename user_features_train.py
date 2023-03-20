@@ -10,6 +10,12 @@ import feature_utils
 import user_features_models as ufm
 
 
+def conf_to_dict(conf):
+    if isinstance(conf, omegaconf.DictConfig):
+        return {k: conf_to_dict(v) for k, v in conf.items()}
+    return conf
+
+
 @hydra.main(version_base=None, config_path='user_features_conf', config_name='config.yaml')
 def main(conf: omegaconf.DictConfig):
     train_data = pd.read_parquet(feature_utils.DATA_ROOT / 'train_users.pqt')
@@ -38,7 +44,7 @@ def main(conf: omegaconf.DictConfig):
 
     # noinspection PyUnresolvedReferences
     run_dir = Path(HydraConfig.get()['run']['dir'])
-    model = model_class(conf['model_hyperparameters'], target, n_cat_features)
+    model = model_class(conf_to_dict(conf['model_hyperparameters']), target, n_cat_features)
     model.fit(train_ds, val_ds)
     del train_ds
     model.save(run_dir)
