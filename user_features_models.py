@@ -51,10 +51,11 @@ class DS:
 
 
 class AbstractModel(abc.ABC):
-    def __init__(self, model_hps, target, n_cat_features):
+    def __init__(self, model_hps, target, n_cat_features, train_dir=None):
         self.model_hps = model_hps
         self.target = target
         self.cat_feature_ids = np.arange(n_cat_features)
+        self.train_dir = train_dir
 
     @abc.abstractmethod
     def fit(self, train_ds: DS, val_ds: DS):
@@ -76,12 +77,13 @@ class AbstractModel(abc.ABC):
 
 class GBDTModel(AbstractModel):
 
-    def __init__(self, model_hps, target, n_cat_features, model=None):
-        super().__init__(model_hps, target, n_cat_features)
+    def __init__(self, model_hps, target, n_cat_features, train_dir=None, model=None):
+        super().__init__(model_hps, target, n_cat_features, train_dir)
         self.cat_feature_names = [f'c{i}' for i in self.cat_feature_ids]
         self.model = model or CatBoostClassifier(
             **model_hps['create'], cat_features=self.cat_feature_names,
-            eval_metric='AUC' if target == 'is_male' else 'TotalF1'
+            eval_metric='AUC' if target == 'is_male' else 'TotalF1',
+            train_dir=train_dir / 'catboost_info' if train_dir else None
         )
 
     def prepare_features(self, ds: DS):
@@ -111,7 +113,7 @@ class GBDTModel(AbstractModel):
     def load(cls, path: Path, conf: DictConfig):
         model = CatBoostClassifier()
         model.load_model(str(path / 'model.cbm'))
-        return GBDTModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model)
+        return GBDTModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model=model)
 
 
 class Gini(Metric):
@@ -134,8 +136,8 @@ class WeightedF1(Metric):
 
 
 class NNModel(AbstractModel):
-    def __init__(self, model_hps, target, n_cat_features, model=None):
-        super().__init__(model_hps, target, n_cat_features)
+    def __init__(self, model_hps, target, n_cat_features, train_dir=None, model=None):
+        super().__init__(model_hps, target, n_cat_features, train_dir)
         self.model = model
 
     def fit(self, train_ds: DS, val_ds: DS):
@@ -166,7 +168,7 @@ class NNModel(AbstractModel):
     def load(cls, path: Path, conf: DictConfig):
         model = TabNetClassifier()
         model.load_model(str(path / 'model.zip'))
-        return NNModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model)
+        return NNModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model=model)
 
 
 models = {
