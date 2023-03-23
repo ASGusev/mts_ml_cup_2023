@@ -50,7 +50,6 @@ def main(conf: omegaconf.DictConfig):
         )
     else:
         user_embeddings = None
-    n_cat_features = len(user_feature_loader.cat_feature_names)
 
     target = conf['target']
     train_target = train_data[target].values
@@ -60,7 +59,8 @@ def main(conf: omegaconf.DictConfig):
     val_ds = ufm.DS(user_feature_loader, user_embeddings, target, val_data['user_id'], val_target)
     model_class = ufm.models[conf['model_class']]
 
-    model = model_class(conf_to_dict(conf['model_hyperparameters']), target, n_cat_features, run_dir)
+    model = model_class(
+        conf_to_dict(conf['model_hyperparameters']), target, user_feature_loader.n_cat_features, run_dir)
     model.fit(train_ds, val_ds)
     del train_ds
     model.save(run_dir)

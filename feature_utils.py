@@ -212,19 +212,25 @@ class FeatureLoader:
         self.cat_feature_names = [f'{fn}' for fn in conf['cat_features']]
 
         self.ready_features = load_feature_arrays(conf['ready_features'], features_dir)
+        self.ready_cat_features = load_feature_arrays(conf['ready_cat_features'], features_dir) \
+            if conf['ready_cat_features'] else np.ndarray((0, N_USERS))
 
         self.mean_calculators = [
             KeyedMeanCalculator.load(features_dir / f'{fn}.npz')
             for fn in conf['mean_calculators']
         ]
+        self.n_cat_features = len(self.cat_feature_names) + len(self.ready_cat_features)
 
     def get_cat_features(self, indexes):
-        if not self.cat_feature_names:
+        if not self.cat_feature_names and not self.ready_cat_features:
             return np.ndarray((len(indexes), 0))
-        return np.stack([
-            self.cat_tops[fn][indexes]
-            for fn in self.cat_feature_names
-        ]).T
+        return np.stack((
+            *(
+                self.cat_tops[fn][indexes]
+                for fn in self.cat_feature_names
+            ),
+            *self.ready_cat_features[:, indexes]
+        )).T
 
     def get_num_features(self, indexes):
         return np.stack((
