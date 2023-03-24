@@ -98,7 +98,7 @@ class ZeroOneScaler:
         )
 
 
-def read_dir(path):
+def read_dir(path: Path = CONVERTED_DATA_ROOT):
     for part_path in tqdm(list(path.glob('*.parquet'))):
         yield pd.read_parquet(part_path)
 
