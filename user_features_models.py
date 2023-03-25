@@ -9,6 +9,8 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_tabnet.metrics import Metric
 from pytorch_tabnet.tab_model import TabNetClassifier
 from sklearn.metrics import roc_auc_score, f1_score
+import xgboost
+from xgboost.callback import EarlyStopping
 
 from feature_utils import FeatureLoader, PartialEmbeddingsLoader, age_bucket
 
@@ -48,6 +50,16 @@ class DS:
         num_features = self.user_feature_loader.get_num_features(self.user_ids)
         embeddings = self.user_embeddings[self.user_ids]
         return np.concatenate((cat_features, num_features, embeddings), axis=1)
+
+
+def gini(y_true, y_predicted):
+    return max(2 * roc_auc_score(y_true, y_predicted) - 1, 0.)
+
+
+def weighted_f1(y_true, y_predicted):
+    if len(y_predicted.shape) == 2:
+        y_predicted = y_predicted.argmax(axis=1)
+    return f1_score(y_true, y_predicted, average='weighted')
 
 
 class AbstractModel(abc.ABC):
@@ -121,9 +133,8 @@ class Gini(Metric):
         self._name = "gini"
         self._maximize = True
 
-    def __call__(self, y_true, y_score):
-        auc = roc_auc_score(y_true, y_score[:, 1])
-        return max(2 * auc - 1, 0.)
+    def __call__(self, y_true, y_predicted):
+        return gini(y_true, y_predicted[:, 1])
 
 
 class WeightedF1(Metric):
@@ -132,7 +143,7 @@ class WeightedF1(Metric):
         self._maximize = True
 
     def __call__(self, y_true, y_score):
-        return f1_score(y_true, np.argmax(y_score, axis=1), average='weighted')
+        return weighted_f1(y_true, y_score)
 
 
 class NNModel(AbstractModel):
@@ -171,9 +182,49 @@ class NNModel(AbstractModel):
         return NNModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model=model)
 
 
+class XGBoostModel(AbstractModel):
+    def __init__(self, model_hps, target, n_cat_features, train_dir=None, model=None):
+        super().__init__(model_hps, target, n_cat_features, train_dir)
+        self.model = model
+
+    def fit(self, train_ds: DS, val_ds: DS):
+        train_cat_features = train_ds.get_user_cat_features()
+        train_num_features = train_ds.get_user_num_features()
+        feature_types = ['c' for _ in range(train_cat_features.shape[1])] + \
+                        ['q' for _ in range(train_num_features.shape[1])]
+        self.model = xgboost.XGBClassifier(
+            **self.model_hps['create'], eval_metric=gini if self.target == 'is_male' else weighted_f1,
+            callbacks=[EarlyStopping(self.model_hps['early_stopping_rounds'], maximize=True, save_best=True)],
+            enable_categorcal=True, feature_types=feature_types
+        )
+        self.model.fit(
+            np.concatenate((train_cat_features, train_num_features), axis=1), train_ds.target,
+            eval_set=((val_ds.get_all_user_features(), val_ds.target),)
+        )
+
+    def predict_probability(self, ds: DS):
+        probability = self.model.predict_proba(ds.get_all_user_features())
+        if self.target == 'is_male':
+            probability = probability[:, 1]
+        return probability
+
+    def save(self, directory: Path):
+        self.model.save_model(directory / 'xgb.model')
+
+    @classmethod
+    def load(cls, path: Path, conf: DictConfig):
+        model = xgboost.XGBClassifier()
+        model.load_model(path / 'xgb.model')
+        return XGBoostModel(
+            conf['model_parameters'], conf['target'], len(conf['features']['cat_features']),
+            model=model
+        )
+
+
 models = {
     'gbdt': GBDTModel,
-    'nn': NNModel
+    'nn': NNModel,
+    'xgb': XGBoostModel
 }
 
 
