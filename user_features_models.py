@@ -161,7 +161,7 @@ class NNModel(AbstractModel):
         # noinspection PyTypeChecker
         self.model.fit(
             train_ds.get_all_user_features(), np.vectorize(str)(train_ds.target),
-            eval_set=[(val_ds.get_all_user_features(), np.vectorize(str)(val_ds.target))],
+            eval_set=[(val_ds.get_all_user_features(), np.vectorize(str)(val_ds.target))] if val_ds else None,
             eval_metric=[Gini if self.target == 'is_male' else WeightedF1],
             **self.model_hps['fit']
         )
@@ -199,7 +199,7 @@ class XGBoostModel(AbstractModel):
         )
         self.model.fit(
             np.concatenate((train_cat_features, train_num_features), axis=1), train_ds.target,
-            eval_set=((val_ds.get_all_user_features(), val_ds.target),)
+            eval_set=((val_ds.get_all_user_features(), val_ds.target),) if val_ds else None
         )
 
     def predict_probability(self, ds: DS):
