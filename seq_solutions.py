@@ -245,7 +245,7 @@ class ConvModel(pl.LightningModule):
         return self.clf_part(combined_features)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), self.lr, weight_decay=self.weight_decay)
+        return torch.optim.NAdam(self.parameters(), self.lr, weight_decay=self.weight_decay)
 
     def on_train_start(self):
         self.logger.log_hyperparams(self.hparams)
