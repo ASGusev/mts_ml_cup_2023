@@ -125,7 +125,7 @@ class GBDTModel(AbstractModel):
     def load(cls, path: Path, conf: DictConfig):
         model = CatBoostClassifier()
         model.load_model(str(path / 'model.cbm'))
-        return GBDTModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model=model)
+        return GBDTModel(conf['model_hyperparameters'], conf['target'], len(conf['features']['cat_features']), model=model)
 
 
 class Gini(Metric):
@@ -179,7 +179,7 @@ class NNModel(AbstractModel):
     def load(cls, path: Path, conf: DictConfig):
         model = TabNetClassifier()
         model.load_model(str(path / 'model.zip'))
-        return NNModel(conf['model_parameters'], conf['target'], len(conf['features']['cat_features']), model=model)
+        return NNModel(conf['model_hyperparameters'], conf['target'], len(conf['features']['cat_features']), model=model)
 
 
 class XGBoostModel(AbstractModel):
@@ -209,14 +209,14 @@ class XGBoostModel(AbstractModel):
         return probability
 
     def save(self, directory: Path):
-        self.model.save_model(directory / 'xgb.model')
+        self.model.save_model(directory / 'xgb_model.json')
 
     @classmethod
     def load(cls, path: Path, conf: DictConfig):
         model = xgboost.XGBClassifier()
-        model.load_model(path / 'xgb.model')
+        model.load_model(path / 'xgb_model.json')
         return XGBoostModel(
-            conf['model_parameters'], conf['target'], len(conf['features']['cat_features']),
+            conf['model_hyperparameters'], conf['target'], len(conf['features']['cat_features']),
             model=model
         )
 
